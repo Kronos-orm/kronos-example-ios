@@ -1,0 +1,4 @@
+headers = sqlite_bridge.h
+headerFilter = sqlite_bridge.h sqlite3.h
+package = com.kotlinorm.example.sqlite.c
+staticLibraries = libsqlite3.a

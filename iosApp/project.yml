@@ -1,0 +1,46 @@
+name: KronosIosApp
+options:
+  bundleIdPrefix: com.kotlinorm.example
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    FRAMEWORK_SEARCH_PATHS: '$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)'
+    OTHER_LDFLAGS: '$(inherited) -framework KronosIosExample -lsqlite3'
+targets:
+  KronosIosApp:
+    type: application
+    platform: iOS
+    sources:
+      - KronosIosApp.swift
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kotlinorm.example.ios
+      TARGETED_DEVICE_FAMILY: '1,2'
+    preBuildScripts:
+      - name: Build Kotlin Native framework
+        basedOnDependencyAnalysis: false
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :shared:embedAndSignAppleFrameworkForXcode --max-workers=2
+  KronosIosAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - KronosIosAppUITests.swift
+    dependencies:
+      - target: KronosIosApp
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kotlinorm.example.ios.uitests
+      TEST_TARGET_NAME: KronosIosApp
+schemes:
+  KronosIosApp:
+    build:
+      targets:
+        KronosIosApp: all
+    test:
+      targets:
+        - KronosIosAppUITests

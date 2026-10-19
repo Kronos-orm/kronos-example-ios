@@ -1,0 +1,17 @@
+[versions]
+kotlin = "2.4.21"
+androidx-sqlite = "2.6.2"
+kronos = "0.4.0-SNAPSHOT"
+serialization = "1.11.0"
+
+[libraries]
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+androidx-sqlite = { module = "androidx.sqlite:sqlite", version.ref = "androidx-sqlite" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "androidx-sqlite" }
+kronos-core = { module = "com.kotlinorm:kronos-core", version.ref = "kronos" }
+
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kronos = { id = "com.kotlinorm.kronos-gradle-plugin", version.ref = "kronos" }
