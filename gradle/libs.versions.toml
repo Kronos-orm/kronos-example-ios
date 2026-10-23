@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.4.21"
 androidx-sqlite = "2.6.2"
-kronos = "0.4.0-SNAPSHOT"
+kronos = "0.4.0"
 serialization = "1.11.0"
 
 [libraries]

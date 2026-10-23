@@ -8,7 +8,7 @@ plugins {
 }
 
 kotlin {
-    compilerOptions { freeCompilerArgs.add("-Xcollection-literals") }
+    compilerOptions { freeCompilerArgs.addAll("-Xcollection-literals", "-Xcontext-sensitive-resolution") }
     val iosTargets = listOf(iosX64(), iosArm64(), iosSimulatorArm64())
     val desktopTargets = listOf(macosX64(), macosArm64(), linuxX64(), linuxArm64(), mingwX64())
     tvosX64()

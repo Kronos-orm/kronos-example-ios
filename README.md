@@ -57,7 +57,7 @@ SqliteDemo.shared.insertAndRead(name: "Kronos iOS")
 
 ## Run the iOS app
 
-Install JDK 21, Xcode, and [XcodeGen](https://github.com/yonaskolb/XcodeGen). Dependency versions are managed in [gradle/libs.versions.toml](gradle/libs.versions.toml): Kotlin 2.4.21 and Kronos 0.4.0-SNAPSHOT.
+Install JDK 21, Xcode, and [XcodeGen](https://github.com/yonaskolb/XcodeGen). Dependency versions are managed in [gradle/libs.versions.toml](gradle/libs.versions.toml): Kotlin 2.4.21 and Kronos 0.4.0.
 
 Build the Kronos artifacts from the sibling source checkout:
 
@@ -125,3 +125,12 @@ Apple and Linux use AndroidX bundled SQLite 2.6.2. Windows compiles the vendored
 ## License
 
 The example code is licensed under Apache License 2.0; see [LICENSE](LICENSE). SQLite is public domain; its source version and checksums are recorded in [the SQLite source directory](shared/src/nativeInterop/sqlite/README.md).
+
+## Logging
+
+Kronos logs to the console by default. Disable logging with the shared switch; re-enabling preserves the adapter, paths and custom factory:
+
+```kotlin
+Kronos.logging.enabled = false
+Kronos.logging.enabled = true
+```
