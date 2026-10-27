@@ -112,14 +112,16 @@ kotlin.targets.withType<KotlinNativeTarget>().configureEach {
 if (System.getProperty("os.name").startsWith("Mac")) {
     val hostTargetName = if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "macosArm64" else "macosX64"
     kotlin.targets.withType<KotlinNativeTarget>().matching { it.name == hostTargetName }.configureEach {
+        val mainCompilation = compilations.getByName("main")
         val benchmark = compilations.create("benchmark") {
-            associateWith(compilations.getByName("main"))
+            associateWith(mainCompilation)
             defaultSourceSet.kotlin.srcDir("src/metadataBenchmark/kotlin")
         }
         binaries.executable("metadataBenchmark", listOf(NativeBuildType.DEBUG)) {
             compilation = benchmark
             entryPoint = "com.kotlinorm.example.benchmark.main"
-            tasks.named("${hostTargetName}Test").configure { dependsOn(runTaskProvider) }
+            val metadataRun = requireNotNull(runTaskProvider) { "The host metadata executable must be runnable" }
+            project.tasks.named("${hostTargetName}Test").configure { dependsOn(metadataRun) }
         }
     }
 }
