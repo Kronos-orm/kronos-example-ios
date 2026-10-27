@@ -197,6 +197,7 @@ class KronosSqliteDataSource(
         try {
             scope.block().also {
                 check(lifecycle == State.OPEN) { "SQLite transaction connection failed" }
+                check(!context.failed) { "SQLite transaction was aborted by a statement failure" }
                 context.connection.exec("COMMIT")
             }
         } catch (cause: Throwable) {
@@ -300,6 +301,7 @@ class KronosSqliteDataSource(
                     State.CLOSED -> error("SQLite data source is closed; call open() or reopen()")
                     State.FAILED -> error("SQLite data source failed; call reopen() to recover")
                 }
+                check(currentTransaction?.failed != true) { "SQLite transaction was aborted by a statement failure" }
                 operationDepth++
             }
             try {
@@ -309,7 +311,8 @@ class KronosSqliteDataSource(
                     }
                 }
             } catch (cause: SqliteDriverFailure) {
-                lifecycle = State.FAILED
+                currentTransaction?.failed = true
+                if (cause.connectionInvalid) lifecycle = State.FAILED
                 throw cause
             } finally {
                 if (ensureOpen) operationDepth--
@@ -388,6 +391,7 @@ class KronosSqliteDataSource(
 
     private class TransactionContext(val connection: SqliteConnection, val owner: Long) {
         var active = true
+        var failed = false
         val tokens = mutableListOf<SavepointToken>()
     }
 

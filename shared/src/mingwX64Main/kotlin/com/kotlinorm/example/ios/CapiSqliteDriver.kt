@@ -30,8 +30,8 @@ class CapiSqliteDriver : SqliteDriver {
         fun requirePointer(): CPointer<sqlite3> = pointer ?: throw SqliteDriverFailure("SQLite connection is closed")
 
         fun check(code: Int) {
-            if (code != SQLITE_OK) throw SqliteDriverFailure(
-                "SQLite error ($code): ${sqlite3_errmsg(requirePointer())?.toKString()}"
+            if (code != SQLITE_OK) throw sqliteFailure(
+                code, "SQLite error ($code): ${sqlite3_errmsg(requirePointer())?.toKString()}"
             )
         }
 

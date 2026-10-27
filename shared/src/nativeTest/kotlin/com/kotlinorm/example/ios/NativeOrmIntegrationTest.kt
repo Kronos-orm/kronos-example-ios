@@ -32,7 +32,7 @@ import kotlin.reflect.KMutableProperty0
 private val ormTestMetadataInitialization = lazy { initializeKronosMetadata() }
 
 /** Test-owned generated projections join the main graph before its first freeze. */
-private fun initializeOrmTest() {
+internal fun initializeOrmTest() {
     ormTestMetadataInitialization.value
     initializeOrmExample()
 }
@@ -56,6 +56,33 @@ private class NativeTypedDslCapture {
 }
 
 class NativeOrmIntegrationTest {
+    @Test
+    fun nativeSourceSetDependencyContributesItsModelFactory() {
+        initializeOrmTest()
+        val source = KronosSqliteDataSource()
+        val wrapper = KronosExecutionWrapper(source)
+        val previous = Kronos.dataSource
+        Kronos.dataSource = { wrapper }
+        try {
+            val person = com.kotlinorm.example.entities.PlatformPerson(name = "platform dependency")
+            wrapper.table.createTable(person)
+            val inserted = person.insert().withId().execute()
+            assertEquals(1, inserted.affectedRows)
+            val loaded = com.kotlinorm.example.entities.PlatformPerson().select().first()
+            assertEquals(1, loaded.id)
+            assertEquals("platform dependency", loaded.name)
+            val nativeOnly = com.kotlinorm.example.entities.NativeOnlyPerson(name = "native declaration")
+            wrapper.table.createTable(nativeOnly)
+            nativeOnly.insert().execute()
+            val nativeLoaded = com.kotlinorm.example.entities.NativeOnlyPerson().select().first()
+            assertEquals(1, nativeLoaded.id)
+            assertEquals("native declaration", nativeLoaded.name)
+        } finally {
+            Kronos.dataSource = previous
+            source.close()
+        }
+    }
+
     @Test
     fun explicitDslReturnTypesKeepTheirNativeCallingConvention() {
         initializeOrmTest()

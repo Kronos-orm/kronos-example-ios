@@ -103,6 +103,8 @@ On Windows, `gradlew.bat` provides the same tasks. Custom C tool paths can be su
 
 The shared tests exercise real SQLite CRUD, generated IDs, nullable values, enum/JSON/blob conversion, transactions and savepoints, concurrent access, file persistence, schema changes, and connection recovery. ORM tests use the compiler-generated KPojo metadata and DSL.
 
+Statement errors preserve the connection and existing data. A driver error inside an owned transaction aborts the transaction and rolls it back, even when the callback catches the error. Only a broken connection or unknown driver failure requires `reopen()`; reopening an in-memory database creates a new, empty database.
+
 Declared targets: iOS arm64/x64/simulatorArm64; macOS arm64/x64; tvOS arm64/x64/simulatorArm64; watchOS arm64/deviceArm64/x64/simulatorArm64; Linux x64/arm64; Windows MinGW x64.
 
 ## Project structure

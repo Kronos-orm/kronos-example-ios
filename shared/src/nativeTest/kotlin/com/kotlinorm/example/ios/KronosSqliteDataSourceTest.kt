@@ -396,17 +396,69 @@ class SqliteLifecycleAndSemanticsTest {
 
     @Test
     fun driverFailureRequiresExplicitRecovery() {
-        val source = KronosSqliteDataSource()
+        val driver = RecordingDriver()
+        val source = KronosSqliteDataSource(driver)
         try {
-            assertFailsWith<SqliteDriverFailure> {
-                source.execute(KronosActionExecutionPlan("INSERT INTO missing_table VALUES (1)"))
-            }
+            source.open()
+            driver.failNextPrepare = true
+            assertFailsWith<SqliteDriverFailure> { query(source, "SELECT 1") }
             assertEquals(KronosSqliteDataSource.State.FAILED, source.state)
             assertFailsWith<IllegalStateException> { query(source,"SELECT 1") }
             assertFailsWith<IllegalStateException> { source.open() }
             source.reopen()
             assertEquals(listOf(KronosPhysicalValue.Integer(1)), query(source,"SELECT 1"))
         } finally { source.close() }
+    }
+
+    @Test
+    fun statementErrorsPreserveTheConnectionAndExistingMemoryData() {
+        val source = KronosSqliteDataSource()
+        try {
+            source.execute(KronosActionExecutionPlan("CREATE TABLE item(id INTEGER PRIMARY KEY)"))
+            source.execute(KronosActionExecutionPlan("INSERT INTO item VALUES(1)"))
+            val syntax = assertFailsWith<SqliteDriverFailure> {
+                source.execute(KronosActionExecutionPlan("INSERT INTO missing_table VALUES(2)"))
+            }
+            assertEquals(false, syntax.connectionInvalid)
+            val constraint = assertFailsWith<SqliteDriverFailure> {
+                source.execute(KronosActionExecutionPlan("INSERT INTO item VALUES(1)"))
+            }
+            assertEquals(false, constraint.connectionInvalid)
+            assertEquals(KronosSqliteDataSource.State.OPEN, source.state)
+            assertEquals(listOf(KronosPhysicalValue.Integer(1)), query(source, "SELECT id FROM item"))
+            source.execute(KronosActionExecutionPlan("INSERT INTO item VALUES(2)"))
+            assertEquals(listOf(KronosPhysicalValue.Integer(1), KronosPhysicalValue.Integer(2)),
+                query(source, "SELECT id FROM item ORDER BY id"))
+        } finally { source.close() }
+    }
+
+    @Test
+    fun caughtStatementErrorsCannotCommitOrEscapeTheOwnedTransaction() {
+        for (conflict in listOf("", "OR ROLLBACK")) for (nested in listOf(false, true)) {
+            val source = KronosSqliteDataSource()
+            try {
+                source.execute(KronosActionExecutionPlan("CREATE TABLE item(id INTEGER PRIMARY KEY)"))
+                source.execute(KronosActionExecutionPlan("INSERT INTO item VALUES(1)"))
+                assertFailsWith<IllegalStateException> {
+                    source.transact {
+                        source.execute(KronosActionExecutionPlan("INSERT INTO item VALUES(2)"))
+                        fun failStatement() {
+                            assertFailsWith<SqliteDriverFailure> {
+                                source.execute(KronosActionExecutionPlan("INSERT $conflict INTO item VALUES(1)"))
+                            }
+                        }
+                        if (nested) {
+                            assertFailsWith<IllegalStateException> { source.transact { failStatement() } }
+                        } else failStatement()
+                        assertFailsWith<IllegalStateException> {
+                            source.execute(KronosActionExecutionPlan("INSERT INTO item VALUES(3)"))
+                        }
+                    }
+                }
+                assertEquals(KronosSqliteDataSource.State.OPEN, source.state)
+                assertEquals(listOf(KronosPhysicalValue.Integer(1)), query(source, "SELECT id FROM item"))
+            } finally { source.close() }
+        }
     }
 
     @Test
@@ -504,7 +556,9 @@ class SqliteFileAndSchemaTest {
             assertFailsWith<SqliteDriverFailure> {
                 source.execute(KronosActionExecutionPlan("INSERT INTO child VALUES(2,999)"))
             }
-            assertEquals(KronosSqliteDataSource.State.FAILED,source.state)
+            assertEquals(KronosSqliteDataSource.State.OPEN,source.state)
+            assertEquals(listOf(KronosPhysicalValue.Integer(1)), query(source, "SELECT id FROM parent"))
+            source.execute(KronosActionExecutionPlan("INSERT INTO child VALUES(2,1)"))
         } finally { source.close() }
     }
 
@@ -635,6 +689,7 @@ class SqliteDriverOwnershipTest {
         var statementCloses=0
         var steps=0
         var failOpen=false
+        var failNextPrepare=false
         override fun open(path: String): SqliteConnection {
             if (failOpen) throw SqliteDriverFailure("injected open failure")
             opens++
@@ -642,6 +697,10 @@ class SqliteDriverOwnershipTest {
             return object : SqliteConnection by connection {
                 override fun close() { connectionCloses++; connection.close() }
                 override fun prepare(sql: String): SqliteStatement {
+                    if (failNextPrepare) {
+                        failNextPrepare = false
+                        throw SqliteDriverFailure("injected connection failure")
+                    }
                     val statement=connection.prepare(sql)
                     return object : SqliteStatement by statement {
                         override fun step(): Boolean { steps++; return statement.step() }

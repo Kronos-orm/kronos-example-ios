@@ -1,6 +1,7 @@
 @file:Suppress("DEPRECATION", "DEPRECATION_ERROR")
 
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -39,7 +40,9 @@ kotlin {
                 implementation(libs.kronos.core)
             }
         }
-        val nativeMain = getByName("nativeMain")
+        val nativeMain = getByName("nativeMain").apply {
+            dependencies { implementation(project(":platform-entities")) }
+        }
         val bundledMain =
             create("bundledMain") {
                 dependsOn(nativeMain)
@@ -103,4 +106,20 @@ kotlin.targets.withType<KotlinNativeTarget>().configureEach {
             extraOpts("-libraryPath", outputDir.get().asFile.absolutePath)
         }
     tasks.named(interop.interopProcessingTaskName).configure { dependsOn(archiveSqlite) }
+}
+
+// One host compilation verifies associated-main and custom-compilation metadata in an executable.
+if (System.getProperty("os.name").startsWith("Mac")) {
+    val hostTargetName = if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "macosArm64" else "macosX64"
+    kotlin.targets.withType<KotlinNativeTarget>().matching { it.name == hostTargetName }.configureEach {
+        val benchmark = compilations.create("benchmark") {
+            associateWith(compilations.getByName("main"))
+            defaultSourceSet.kotlin.srcDir("src/metadataBenchmark/kotlin")
+        }
+        binaries.executable("metadataBenchmark", listOf(NativeBuildType.DEBUG)) {
+            compilation = benchmark
+            entryPoint = "com.kotlinorm.example.benchmark.main"
+            tasks.named("${hostTargetName}Test").configure { dependsOn(runTaskProvider) }
+        }
+    }
 }

@@ -2,6 +2,7 @@ package com.kotlinorm.example.ios
 
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.SQLiteException
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_READWRITE
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_CREATE
@@ -46,5 +47,9 @@ class AndroidxBundledDriver : SqliteDriver {
 private inline fun <T> driverCall(block: () -> T): T = try {
     block()
 } catch (cause: Exception) {
-    throw SqliteDriverFailure(cause.message ?: "SQLite driver failure", cause)
+    // AndroidX 2.6.2 exposes SQLite's result code in throwSQLiteException's message.
+    val code = if (cause is SQLiteException) {
+        cause.message?.removePrefix("Error code: ")?.substringBefore(',')?.toIntOrNull()
+    } else null
+    throw sqliteFailure(code, cause.message ?: "SQLite driver failure", cause)
 }

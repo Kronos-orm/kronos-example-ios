@@ -29,4 +29,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "kronos-example-ios"
-include(":shared")
+include(":shared", ":platform-entities")
