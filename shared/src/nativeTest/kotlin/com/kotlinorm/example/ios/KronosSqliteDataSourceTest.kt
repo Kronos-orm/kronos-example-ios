@@ -248,9 +248,6 @@ class KronosSqliteDataSourceTest {
 @OptIn(kotlinx.cinterop.ExperimentalForeignApi::class, kotlin.experimental.ExperimentalNativeApi::class,
     kotlin.native.concurrent.ObsoleteWorkersApi::class)
 class SqliteLifecycleAndSemanticsTest {
-    private fun query(source: KronosSqliteDataSource, sql: String): List<KronosPhysicalValue> =
-        source.toList(KronosQueryExecutionPlan(sql)) { it.get(1) }
-
     @Test
     fun transactionScopesAndTokensExpire() {
         val source = KronosSqliteDataSource()
@@ -680,32 +677,35 @@ class SqliteDriverOwnershipTest {
             )
         } finally { source.close() }
     }
+}
 
-    private class RecordingDriver : SqliteDriver {
-        private val real = defaultSqliteDriver()
-        override val name = "recording-${real.name}"
-        var opens=0
-        var connectionCloses=0
-        var statementCloses=0
-        var steps=0
-        var failOpen=false
-        var failNextPrepare=false
-        override fun open(path: String): SqliteConnection {
-            if (failOpen) throw SqliteDriverFailure("injected open failure")
-            opens++
-            val connection=real.open(path)
-            return object : SqliteConnection by connection {
-                override fun close() { connectionCloses++; connection.close() }
-                override fun prepare(sql: String): SqliteStatement {
-                    if (failNextPrepare) {
-                        failNextPrepare = false
-                        throw SqliteDriverFailure("injected connection failure")
-                    }
-                    val statement=connection.prepare(sql)
-                    return object : SqliteStatement by statement {
-                        override fun step(): Boolean { steps++; return statement.step() }
-                        override fun close() { statementCloses++; statement.close() }
-                    }
+private fun query(source: KronosSqliteDataSource, sql: String): List<KronosPhysicalValue> =
+    source.toList(KronosQueryExecutionPlan(sql)) { it.get(1) }
+
+private class RecordingDriver : SqliteDriver {
+    private val real = defaultSqliteDriver()
+    override val name = "recording-${real.name}"
+    var opens=0
+    var connectionCloses=0
+    var statementCloses=0
+    var steps=0
+    var failOpen=false
+    var failNextPrepare=false
+    override fun open(path: String): SqliteConnection {
+        if (failOpen) throw SqliteDriverFailure("injected open failure")
+        opens++
+        val connection=real.open(path)
+        return object : SqliteConnection by connection {
+            override fun close() { connectionCloses++; connection.close() }
+            override fun prepare(sql: String): SqliteStatement {
+                if (failNextPrepare) {
+                    failNextPrepare = false
+                    throw SqliteDriverFailure("injected connection failure")
+                }
+                val statement=connection.prepare(sql)
+                return object : SqliteStatement by statement {
+                    override fun step(): Boolean { steps++; return statement.step() }
+                    override fun close() { statementCloses++; statement.close() }
                 }
             }
         }
